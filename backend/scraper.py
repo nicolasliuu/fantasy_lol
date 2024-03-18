@@ -40,12 +40,19 @@ def extract_user_data(username):
     )
     games = driver.find_elements(By.CLASS_NAME, 'Game')
 
-    print(len(games))
+    print(len(games), "\n")
+    count = 1
     
     for game in games:
+        print(count, "\n")
+        count+=1
         # Using WebDriver to click the detail button now
         try:
             details_button = game.find_element(By.CSS_SELECTOR, '.btn-detail')
+            driver.execute_script("arguments[0].scrollIntoView(true);", details_button)
+            # Example: Waiting for a footer or overlay to not be visible or present
+            WebDriverWait(driver, 10).until(EC.invisibility_of_element((By.CSS_SELECTOR, "div.vm-footer-content")))
+
             details_button.click()
             # Wait for details to expand; adjust condition as needed
             WebDriverWait(driver, 5).until(
@@ -67,12 +74,13 @@ def extract_user_data(username):
         }
         games_info.append(game_info)
 
+    print("HELLO")
+
+    input()
     driver.quit()
     return games_info
 
 games_info = extract_user_data("John-Noob")
 for game in games_info:
     print(game)
-
-# Git
     
