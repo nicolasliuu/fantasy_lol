@@ -203,4 +203,4 @@ games_info = extract_user_data("Kurriyan-NA1")
 #Output
 for game in games_info:
     print(game)
-    
+        
