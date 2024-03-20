@@ -109,6 +109,8 @@ async def create_match(match_ids : list[str]):
         matches_collection.insert_one(match_info.dict())
     return {"message": "Matches added to database"}
 
+# Need to figure out how to handle rate limiting
+
 async def main():
     # Properly awaiting the coroutine and printing its result
     puuid = await get_puuid_by_riot_id("John", "Noob")
