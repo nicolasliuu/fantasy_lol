@@ -97,7 +97,7 @@ async def update_match_history(request: Account):
     return {"updated match history": updated_match_history}
 
 # Given match history, populate database with match info (participants, game mode, etc.)
-@app.post("/matches/")
+@app.post("/matches/by-id")
 async def create_match(match_ids : list[str]):
     for match_id in match_ids:
         # Check if we already have the match in the database
@@ -109,7 +109,58 @@ async def create_match(match_ids : list[str]):
         matches_collection.insert_one(match_info.dict())
     return {"message": "Matches added to database"}
 
+# Given account info, populate db with match info that is not already in the db
+@app.post("/matches/by-account")
+async def create_matches_by_account(request: Account):
+    account_data = accounts_collection.find_one({"puuid": request.puuid})
+    if account_data is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    match_ids = account_data["matchHistory"]
+    for match_id in match_ids:
+        # Check if we already have the match in the database
+        if await match_exists(match_id):
+            continue
+        match_info = await get_match_by_id(match_id)
+        if match_info is None:
+            raise HTTPException(status_code=404, detail="Match not found")
+        matches_collection.insert_one(match_info.dict())
+    return {"message": "Matches added to database"}
+
+# Populate db with match info for an unadded account, using only Riot Id
+@app.post("/matches/by-riot-id")
+async def create_matches_by_riot_id(request: AccountCreationRequest):
+    if await account_exists(request.gameName, request.tagLine):
+        # Update match history instead
+        raise HTTPException(status_code=400, detail="Account already exists")
+    puuid = await get_puuid_by_riot_id(request.gameName, request.tagLine)
+    # Also create an object for the account
+    match_ids = await get_match_ids_by_puuid(puuid)
+    # Create an account object
+    if (puuid is None) or (len(match_ids) == 0):
+        raise HTTPException(status_code=404, detail="Account not found")
+    account = Account(puuid=puuid, gameName=request.gameName, tagLine=request.tagLine, matchHistory=match_ids)
+    accounts_collection.insert_one(account.dict())
+    for match_id in match_ids:
+        # Check if we already have the match in the database
+        if await match_exists(match_id):
+            continue
+        match_info = await get_match_by_id(match_id)
+        if match_info is None:
+            raise HTTPException(status_code=404, detail="Match not found")
+        matches_collection.insert_one(match_info.dict())
+    return {"message": "Matches added to database"}
+
 # Need to figure out how to handle rate limiting
+
+# Get account by Riot Id
+@app.get("/accounts/{gameName}/{tagLine}", response_model=Account)
+async def read_account(gameName: str, tagLine: str):
+    account_data = accounts_collection.find_one({"gameName": gameName, "tagLine": tagLine})
+    if account_data is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    account = Account(puuid = account_data["puuid"], gameName = account_data["gameName"], tagLine = account_data["tagLine"], matchHistory = account_data["matchHistory"])
+    return account
+
 
 async def main():
     # Properly awaiting the coroutine and printing its result
