@@ -7,8 +7,8 @@ from pymongo.server_api import ServerApi
 from pydantic import BaseModel
 import requests
 from dotenv import load_dotenv
-from models import Account, AccountCreationRequest
-from riot_api import get_puuid_by_riot_id, get_match_ids_by_puuid, get_match_by_id
+from app.models import Account, AccountCreationRequest
+from riot_api.riot_api import get_puuid_by_riot_id, get_match_ids_by_puuid, get_match_by_id
 import os
 
 load_dotenv()

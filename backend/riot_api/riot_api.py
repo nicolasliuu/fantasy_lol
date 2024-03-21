@@ -1,7 +1,8 @@
 import httpx
 from dotenv import load_dotenv
 import os
-from models import Match
+from app.models import Match
+
 
 load_dotenv()
 
