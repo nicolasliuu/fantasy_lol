@@ -27,7 +27,7 @@ async def get_puuid_by_riot_id(gameName: str, tagLine: str):
         #     print(f"An error occurred: {e}")
     return None
 
-async def get_match_ids_by_puuid(puuid: str):
+async def get_match_ids_by_puuid(puuid: str, ):
     url = f"https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?count=100"
     headers = {"X-Riot-Token": RIOT_API_KEY}
     async with httpx.AsyncClient() as client:

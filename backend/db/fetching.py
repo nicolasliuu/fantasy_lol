@@ -39,9 +39,23 @@ def populate_matches_by_riot_id(riot_id):
         else:
             print(f"Failed to populate matches for Riot-ID: {riot_id['gameName']} | {riot_id['tagLine']}. Status Code: {response.status_code}, Response: {response.text}")
     except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")   
+
+def delete_nonranked_matches():
+    """
+    Make an API call to the /matches/delete-nonranked endpoint to delete non-ranked matches.
+    """
+    try:
+        response = requests.delete(f"{SERVER_URL}/matches/non-ranked")
+        if response.status_code == 200:
+            print("Successfully deleted non-ranked matches")
+        else:
+            print(f"Failed to delete non-ranked matches. Status Code: {response.status_code}, Response: {response.text}")
+    except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
 
 if __name__ == "__main__":
     #
     for riot_id in riot_ids:
         populate_matches_by_riot_id(riot_id)
+    delete_nonranked_matches()

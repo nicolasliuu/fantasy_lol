@@ -51,7 +51,7 @@ async def account_exists(gameName: str, tagLine: str) -> bool:
 
 async def match_exists(match_id: str) -> bool:
     # check if match exists in db
-    result = matches_collection.find_one({"matchId": match_id})
+    result = matches_collection.find_one({"metadata.matchId": match_id})
     return result is not None
 
 # Given Riot Id populate database with account info (PUUID), Match History
@@ -146,6 +146,7 @@ async def create_matches_by_riot_id(request: AccountCreationRequest):
     for match_id in match_ids:  
         # Check if we already have the match in the database
         if await match_exists(match_id):
+            print("Match already exists in database")
             # Check if Match.InfoDto.participants is in the match_info, if not we need to update based on new model
             continue                                   
         match_info = await get_match_by_id(match_id)
@@ -164,6 +165,13 @@ async def read_account(gameName: str, tagLine: str):
         raise HTTPException(status_code=404, detail="Account not found")
     account = Account(puuid = account_data["puuid"], gameName = account_data["gameName"], tagLine = account_data["tagLine"], matchHistory = account_data["matchHistory"])
     return account
+
+# Delete matches that are not ranked
+@app.delete("/matches/non-ranked")
+async def delete_non_ranked_matches():
+    # Delete queueId != 420, != 440
+    matches_collection.delete_many({"info.queueId": {"$ne": 420 or 440}})
+    return {"message": "Non-ranked matches deleted"}
 
 
 async def main():
