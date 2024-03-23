@@ -31,17 +31,24 @@ async def get_match_ids_by_puuid(puuid: str):
     url = f"https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?count=100"
     headers = {"X-Riot-Token": RIOT_API_KEY}
     async with httpx.AsyncClient() as client:
-        resp = await client.get(url, headers=headers)
-        if resp.status_code == 200:
+        try: 
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+            print("Match IDs found!")
             return resp.json()
+        except httpx.HTTPStatusError as e:
+            print(f"HTTP error occurred: {e.response.status_code}")
     return []
 
 async def get_match_by_id(matchId: str):
     url = f"https://{region}.api.riotgames.com/lol/match/v5/matches/{matchId}"
     headers = {"X-Riot-Token": RIOT_API_KEY}
     async with httpx.AsyncClient() as client:
-        resp = await client.get(url, headers=headers)
-        if resp.status_code == 200:
-            # Assuming you have a function to deserialize JSON to your Match model
+        try:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+            print("Match found!")
             return Match(**resp.json())
+        except httpx.HTTPStatusError as e:
+            print(f"HTTP error occurred: {e.response.status_code}")
     return None

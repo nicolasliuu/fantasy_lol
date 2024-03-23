@@ -1,7 +1,24 @@
 from pydantic import BaseModel
 from typing import List, Optional
 from typing import List, Optional
-from .models import AnalyzedMatch
+
+
+class AnalyzedMatch(BaseModel):
+    # Same as a match ID except we attach the player's performance in the match with opponent laner's performance
+    matchId: str
+    date: int # unix timestamp? 
+    playerId: str
+    opponentId: str
+    kills: int
+    deaths: int
+    assists: int
+    dragons: int
+    heralds: int
+    barons: int
+    win: bool
+    score: float    
+    opponentScore: float
+    scoreDelta: float
 
 class Account(BaseModel):
     puuid: str  # Riot's unique identifier for a player
@@ -20,23 +37,6 @@ class Account(BaseModel):
     score: Optional[List[float]] # AI-computed Score for current period (patch)
     score_std: Optional[List[float]] # Standard deviation of AI-computed Score for current period (patch)
     opponent_delta: Optional[List[float]] # Difference in AI-computed Score between player and opponent for current period (patch)
-
-class AnalyzedMatch(BaseModel):
-    # Same as a match ID except we attach the player's performance in the match with opponent laner's performance
-    matchId: str
-    date: int # unix timestamp? 
-    playerId: str
-    opponentId: str
-    kills: int
-    deaths: int
-    assists: int
-    dragons: int
-    heralds: int
-    barons: int
-    win: bool
-    score: float    
-    opponentScore: float
-    scoreDelta: float
 
 class PerkStyleSelectionDto(BaseModel):
     perk: Optional[int] = None
@@ -165,10 +165,23 @@ class ParticipantDto(BaseModel):
     wardsPlaced: Optional[int] = None
     win: Optional[bool] = None
 
+class ObjectiveDto(BaseModel): 
+    first: bool
+    kills: int
+
+class ObjectivesDto(BaseModel):
+    baron: ObjectiveDto
+    champion: ObjectiveDto
+    dragon: ObjectiveDto
+    inhibitor: ObjectiveDto
+    riftHerald: ObjectiveDto
+    tower: ObjectiveDto
+
+
 class TeamDto(BaseModel):
     teamId: Optional[int] = None
     win: Optional[bool] = None
-    # Consider adding a detailed schema for bans and objectives if needed
+    objectives: Optional[ObjectivesDto] = None
 
 class InfoDto(BaseModel):
     gameCreation: Optional[float] = None

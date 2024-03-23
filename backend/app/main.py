@@ -58,9 +58,10 @@ async def match_exists(match_id: str) -> bool:
 @app.post("/accounts/", response_model=AccountCreationRequest)
 async def create_account(request: AccountCreationRequest):
     if await account_exists(request.gameName, request.tagLine):
-        # Update match history instead
-
-        raise HTTPException(status_code=400, detail="Account already exists")
+        # Don't want exception here, just return the account
+        account_data = accounts_collection.find_one({"gameName": request.gameName, "tagLine": request.tagLine})
+        account = Account(puuid = account_data["puuid"], gameName = account_data["gameName"], tagLine = account_data["tagLine"], matchHistory = account_data["matchHistory"])
+        return account
     puuid = await get_puuid_by_riot_id(request.gameName, request.tagLine)
     print(puuid)
     match_ids = await get_match_ids_by_puuid(puuid)
@@ -129,21 +130,24 @@ async def create_matches_by_account(request: Account):
 # Populate db with match info for an unadded account, using only Riot Id
 @app.post("/matches/by-riot-id")
 async def create_matches_by_riot_id(request: AccountCreationRequest):
-    if await account_exists(request.gameName, request.tagLine):
-        # Update match history instead
-        raise HTTPException(status_code=400, detail="Account already exists")
-    puuid = await get_puuid_by_riot_id(request.gameName, request.tagLine)
-    # Also create an object for the account
-    match_ids = await get_match_ids_by_puuid(puuid)
-    # Create an account object
-    if (puuid is None) or (len(match_ids) == 0):
-        raise HTTPException(status_code=404, detail="Account not found")
-    account = Account(puuid=puuid, gameName=request.gameName, tagLine=request.tagLine, matchHistory=match_ids)
-    accounts_collection.insert_one(account.dict())
-    for match_id in match_ids:
+    if not await account_exists(request.gameName, request.tagLine):
+        # Account does not exist in database, create it
+        puuid = await get_puuid_by_riot_id(request.gameName, request.tagLine)
+        # Also create an object for the account
+        match_ids = await get_match_ids_by_puuid(puuid)
+        # Create an account object
+        if (puuid is None) or (len(match_ids) == 0):
+            raise HTTPException(status_code=404, detail="Account not found")
+        account = Account(puuid=puuid, gameName=request.gameName, tagLine=request.tagLine, matchHistory=match_ids)
+        accounts_collection.insert_one(account.dict())
+    # Account exists in database, fetch match history and populate database with match info
+    account_data = accounts_collection.find_one({"gameName": request.gameName, "tagLine": request.tagLine})
+    match_ids = account_data["matchHistory"]
+    for match_id in match_ids:  
         # Check if we already have the match in the database
         if await match_exists(match_id):
-            continue
+            # Check if Match.InfoDto.participants is in the match_info, if not we need to update based on new model
+            continue                                   
         match_info = await get_match_by_id(match_id)
         if match_info is None:
             raise HTTPException(status_code=404, detail="Match not found")
@@ -164,13 +168,15 @@ async def read_account(gameName: str, tagLine: str):
 
 async def main():
     # Properly awaiting the coroutine and printing its result
-    puuid = await get_puuid_by_riot_id("John", "Noob")
-    if puuid is None:
-        raise HTTPException(status_code=404, detail="PUUID not found")
-    print(puuid)
-    match_ids = await get_match_ids_by_puuid(puuid)
-    print(match_ids)
-    match_info = await get_match_by_id(match_ids[5])
+    # puuid = await get_puuid_by_riot_id("John", "Noob")
+    # if puuid is None:
+    #     raise HTTPException(status_code=404, detail="PUUID not found")
+    # print(puuid)
+    # match_ids = await get_match_ids_by_puuid(puuid)
+    # print(match_ids)
+    # match_info = await get_match_by_id(match_ids[5])
+    # print(match_info)
+    match_info = await get_match_by_id("NA1_4947745468")
     print(match_info)
 
 # This runs the main() coroutine and waits for it to finish
