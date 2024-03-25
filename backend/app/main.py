@@ -167,7 +167,10 @@ async def create_matches_by_riot_id(request: AccountCreationRequest):
             raise HTTPException(status_code=404, detail="Match not found")
         if match_info.info.queueId not in [420, 440]:
             continue
-        matches_collection.insert_one(match_info.dict())
+        match_info_dict = match_info.dict()
+        match_info_dict["puuid"] = account_data["puuid"]
+        matches_collection.insert_one(match_info_dict)
+
     
     # Update lastUpdated Unix timestamp
     accounts_collection.update_one({"puuid": account_data["puuid"]}, {"$set": {"lastUpdated": int(time.time())}})

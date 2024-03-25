@@ -191,6 +191,8 @@ class MetadataDto(BaseModel):
 class Match(BaseModel):
     metadata: Optional[MetadataDto] = None
     info: Optional[InfoDto] = None
+    puuid: Optional[str] = None
+    processed: Optional[bool] = False
 
 class AccountCreationRequest(BaseModel):
     gameName: str

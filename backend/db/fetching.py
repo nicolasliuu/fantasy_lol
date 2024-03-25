@@ -98,7 +98,8 @@ def delete_nonranked_matches():
         print(f"Request failed: {e}")
 
 if __name__ == "__main__":
-    delete_matches_field()
+    for riot_id in riot_ids:
+        populate_matches_by_riot_id(riot_id)
     # accounts = populate_accounts_arr()
     # for account in accounts:
     #     update_match_history(account)
