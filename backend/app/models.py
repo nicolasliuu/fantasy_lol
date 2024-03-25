@@ -168,7 +168,7 @@ class TeamDto(BaseModel):
     objectives: Optional[ObjectivesDto] = None
 
 class InfoDto(BaseModel):
-    gameCreation: Optional[float] = None
+    gameCreation: Optional[float] = None # Unix in milliseconds
     gameDuration: Optional[float] = None
     gameEndTimestamp: Optional[float] = None
     gameId: Optional[float] = None
@@ -201,9 +201,9 @@ class Account(BaseModel):
     puuid: str  # Riot's unique identifier for a player
     gameName: str
     tagLine: str
-    lastUpdated: Optional[int] = None # Unix timestamp
+    lastUpdated: int = 0 # Unix timestamp, 0 by default
     matchHistory: Optional[List[str]] = None  # List of match IDs
-    matches: Optional[List[Match]]
+    # matches: Optional[List[Match]]
     analyzed_matchHistory: Optional[List[AnalyzedMatch]] = None  # List of match IDs that have been analyzed
     playerId: Optional[str] = None  # Your custom player ID
     kills: Optional[List[int]] # Number of kills for current period (patch)

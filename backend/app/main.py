@@ -1,3 +1,4 @@
+import time
 from fastapi import FastAPI, HTTPException
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -54,6 +55,11 @@ async def match_exists(match_id: str) -> bool:
     result = matches_collection.find_one({"metadata.matchId": match_id})
     return result is not None
 
+async def account_match_exists(match_id: str, account: Account) -> bool:
+    # check if match exists in account
+    result = accounts_collection.find_one({"puuid": account["puuid"], "matches.metadata.matchId": match_id})
+    return result is not None
+
 # Given Riot Id populate database with account info (PUUID), Match History
 @app.post("/accounts/", response_model=AccountCreationRequest)
 async def create_account(request: AccountCreationRequest):
@@ -75,6 +81,13 @@ async def create_account(request: AccountCreationRequest):
     accounts_collection.insert_one(account.dict())
     return account
 
+@app.get("/accounts/")
+async def read_accounts():
+    accounts = []
+    for account in accounts_collection.find():
+        accounts.append(Account(puuid = account["puuid"], gameName = account["gameName"], tagLine = account["tagLine"], matchHistory = account["matchHistory"]))
+    return accounts
+
 @app.post("/accounts/match-history/")
 async def update_match_history(request: Account):
     print("request: ", request)
@@ -83,17 +96,18 @@ async def update_match_history(request: Account):
         raise HTTPException(status_code=404, detail="Account not found")
     print(account_data)
     # Fetch new match IDs from Riot API
-    match_ids = await get_match_ids_by_puuid(account_data["puuid"])
+    match_ids = await get_match_ids_by_puuid(account_data["puuid"], account_data.get("lastUpdated", 0))
     # Process which matches are new and append to match history
 
     # Get current match history
-    current_match_history = account_data["matchHistory"]
+    current_match_history = account_data.get("matchHistory", [])
     # Determine which ones to add
     matches_to_add = [match_id for match_id in match_ids if match_id not in current_match_history]
     # Append new match IDs to existing match history
     updated_match_history = matches_to_add + current_match_history
     # Update database with new match history
     accounts_collection.update_one({"puuid": request.puuid}, {"$set": {"matchHistory": updated_match_history}})
+    accounts_collection.update_one({"puuid": request.puuid}, {"$set": {"lastUpdated": int(time.time())}})
 
     return {"updated match history": updated_match_history}
 
@@ -138,21 +152,26 @@ async def create_matches_by_riot_id(request: AccountCreationRequest):
         # Create an account object
         if (puuid is None) or (len(match_ids) == 0):
             raise HTTPException(status_code=404, detail="Account not found")
-        account = Account(puuid=puuid, gameName=request.gameName, tagLine=request.tagLine, matchHistory=match_ids)
+        account = Account(puuid=puuid, gameName=request.gameName, tagLine=request.tagLine, matchHistory=match_ids, lastUpdated = 0)
         accounts_collection.insert_one(account.dict())
     # Account exists in database, fetch match history and populate database with match info
     account_data = accounts_collection.find_one({"gameName": request.gameName, "tagLine": request.tagLine})
     match_ids = account_data["matchHistory"]
-    for match_id in match_ids:  
-        # Check if we already have the match in the database
+
+    for match_id in match_ids:
+        # Check if accounts.matches contains match_id
         if await match_exists(match_id):
-            print("Match already exists in database")
-            # Check if Match.InfoDto.participants is in the match_info, if not we need to update based on new model
-            continue                                   
+            continue
         match_info = await get_match_by_id(match_id)
         if match_info is None:
             raise HTTPException(status_code=404, detail="Match not found")
+        if match_info.info.queueId not in [420, 440]:
+            continue
         matches_collection.insert_one(match_info.dict())
+    
+    # Update lastUpdated Unix timestamp
+    accounts_collection.update_one({"puuid": account_data["puuid"]}, {"$set": {"lastUpdated": int(time.time())}})
+
     return {"message": "Matches added to database"}
 
 # Need to figure out how to handle rate limiting
@@ -160,6 +179,7 @@ async def create_matches_by_riot_id(request: AccountCreationRequest):
 # Get account by Riot Id
 @app.get("/accounts/{gameName}/{tagLine}", response_model=Account)
 async def read_account(gameName: str, tagLine: str):
+
     account_data = accounts_collection.find_one({"gameName": gameName, "tagLine": tagLine})
     if account_data is None:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -170,13 +190,33 @@ async def read_account(gameName: str, tagLine: str):
 @app.delete("/matches/non-ranked")
 async def delete_non_ranked_matches():
     # Delete queueId != 420, != 440
-    matches_collection.delete_many({"info.queueId": {"$ne": 420 or 440}})
+    matches_collection.delete_many({"info.queueId": {"$nin": [420, 440]}})
     return {"message": "Non-ranked matches deleted"}
+
+@app.delete("/accounts/delete-non-ranked")
+async def delete_non_ranked_matches_from_accounts():
+    # Delete documents where queueId is not 420 and not 440
+    accounts_collection.update_many(
+        {},
+        {
+            "$pull": {
+                "matches": {
+                    "info.queueId": {"$nin": [420, 440]}
+                }
+            }
+        }
+    )
+    return {"message": "Non-ranked matches deleted from accounts"}
+
+@app.delete("/accounts/matches")
+async def delete_matches_field_from_account():
+    accounts_collection.update_many({}, {"$unset": {"matches": ""}})
+    return {"message": "Matches field deleted from accounts"}
 
 
 async def main():
     # Properly awaiting the coroutine and printing its result
-    # puuid = await get_puuid_by_riot_id("John", "Noob")
+    puuid = await get_puuid_by_riot_id("John", "Noob")
     # if puuid is None:
     #     raise HTTPException(status_code=404, detail="PUUID not found")
     # print(puuid)
@@ -184,8 +224,8 @@ async def main():
     # print(match_ids)
     # match_info = await get_match_by_id(match_ids[5])
     # print(match_info)
-    match_info = await get_match_by_id("NA1_4947745468")
-    print(match_info)
+    # accounts_collection.update_many({}, {"$unset": {"matches": ""}})
+    # print("Deleted matches field from accounts")
 
 # This runs the main() coroutine and waits for it to finish
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 from dotenv import load_dotenv
 import os
@@ -27,8 +28,9 @@ async def get_puuid_by_riot_id(gameName: str, tagLine: str):
         #     print(f"An error occurred: {e}")
     return None
 
-async def get_match_ids_by_puuid(puuid: str, ):
-    url = f"https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?count=100"
+async def get_match_ids_by_puuid(puuid: str, lastUpdated: int = 0):
+    # url should depend on lastUpdated time.
+    url = f"https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?startTime={lastUpdated}&type=ranked&count=100"
     headers = {"X-Riot-Token": RIOT_API_KEY}
     async with httpx.AsyncClient() as client:
         try: 
@@ -46,9 +48,17 @@ async def get_match_by_id(matchId: str):
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(url, headers=headers)
-            resp.raise_for_status()
+            resp.raise_for_status()  # Raises error for 4xx or 5xx responses
             print("Match found!")
-            return Match(**resp.json())
+            return Match(**resp.json())  # Assuming Match is a valid class/model you have defined elsewhere
         except httpx.HTTPStatusError as e:
-            print(f"HTTP error occurred: {e.response.status_code}")
+            # Check if the error is because of rate limiting
+            if e.response.status_code == 429:
+                retry_after = int(e.response.headers.get("Retry-After", "10"))  # Default to 1 second if header is missing
+                print(f"Rate limited. Retrying after {retry_after} seconds")
+                await asyncio.sleep(retry_after)  # Sleep for the duration of the rate limit
+                return await get_match_by_id(matchId)  # Recursively retry fetching the match
+            else:
+                # Handle other HTTP errors
+                print(f"HTTP error occurred: {e.response.status_code}")
     return None
