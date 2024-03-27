@@ -1,6 +1,6 @@
-from pydantic import BaseModel
-from typing import List, Optional
-from typing import List, Optional
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict
+
 
 
 class AnalyzedMatch(BaseModel):
@@ -198,6 +198,21 @@ class AccountCreationRequest(BaseModel):
     gameName: str
     tagLine: str
 
+class PatchStats(BaseModel):
+    kills: Optional[int] = 0
+    deaths: Optional[int] = 0
+    assists: Optional[int] = 0
+    games_played: Optional[int] = 0
+    kda_ratio: Optional[float] = 0.0
+    wins: Optional[int] = 0
+    losses: Optional[int] = 0
+    win_rate: Optional[float] = 0.0
+    score: Optional[List[float]] = 0.0
+    average_score: Optional[float] = 0.0
+    score_std: Optional[float] = 0.0
+    opponent_delta: Optional[List[float]] = 0.0
+    average_delta: Optional[float] = 0.0
+    opponent_delta_std: Optional[float] = 0.0
 
 class Account(BaseModel):
     puuid: str  # Riot's unique identifier for a player
@@ -207,14 +222,5 @@ class Account(BaseModel):
     matchHistory: Optional[List[str]] = None  # List of match IDs
     # matches: Optional[List[Match]]
     analyzed_matchHistory: Optional[List[AnalyzedMatch]] = None  # List of match IDs that have been analyzed
-    playerId: Optional[str] = None  # Your custom player ID
-    kills: Optional[List[int]] # Number of kills for current period (patch)
-    deaths: Optional[List[int]] # Number of deaths for current period (patch)
-    assists: Optional[List[int]] # Number of assists for current period (patch)
-    kda_ratio: Optional[List[float]] # KDA ratio for current period (patch)
-    wins: Optional[List[int]] # Number of wins for current period (patch)
-    losses: Optional[List[int]] # Number of losses for current period (patch)
-    win_rate: Optional[List[float]] # Win rate for current period (patch)
-    score: Optional[List[float]] # AI-computed Score for current period (patch)
-    score_std: Optional[List[float]] # Standard deviation of AI-computed Score for current period (patch)
-    opponent_delta: Optional[List[float]] # Difference in AI-computed Score between player and opponent for current period (patch)
+    playerId: Optional[str]
+    stats_by_patch: Dict[str, PatchStats] = Field(default_factory=dict)  # Stats organized by patch
